@@ -49,8 +49,8 @@ docker compose logs --no-log-prefix --since 2m reco-v1 reco-v2 | python3 scripts
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r catalog-service/requirements.txt -r recommendation-service/requirements.txt \
             -r facade/requirements.txt -r requirements-dev.txt
-(cd catalog-service && pytest -q) && (cd recommendation-service && pytest -q) \
-  && (cd facade && pytest -q) && pytest -q tests
+(cd catalog-service && python -m pytest -q) && (cd recommendation-service && python -m pytest -q) \
+  && (cd facade && python -m pytest -q) && python -m pytest -q tests
 ```
 
 ## Deploy to Google Cloud
