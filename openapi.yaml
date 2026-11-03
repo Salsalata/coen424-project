@@ -1,0 +1,274 @@
+openapi: 3.0.3
+info:
+  title: Product Recommendation API
+  version: 1.0.0
+  description: |
+    COEN 424 project (Option A). A shop sends us its products and its users'
+    activity; the API answers "what should we show this user next?".
+
+    Two microservices sit behind this contract:
+    - catalog-service: products and user events (Firestore in the cloud)
+    - recommendation-service: recommendations. Built twice with the SAME
+      contract: v1 (rules) and v2 (an AI agent using Gemini). A traffic-splitting
+      facade decides which version answers; clients cannot tell.
+
+    Errors use one format everywhere: Problem Details (RFC 9457).
+servers:
+  - url: http://localhost:8080
+    description: Local, through the docker compose facade (all paths)
+  - url: "{catalogUrl}"
+    description: Cloud Run catalog-service (products, events)
+    variables:
+      catalogUrl:
+        default: https://catalog-service-REPLACE.a.run.app
+tags:
+  - name: products
+  - name: events
+  - name: recommendations
+  - name: platform
+paths:
+  /healthz:
+    get:
+      tags: [platform]
+      summary: Liveness check for the platform (not for clients)
+      operationId: healthz
+      responses:
+        "200":
+          description: Service is up
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: {type: string, example: ok}
+  /api/v1/products:
+    get:
+      tags: [products]
+      summary: List products
+      operationId: listProducts
+      parameters:
+        - {name: category, in: query, schema: {type: string}, description: Only this category}
+        - {name: max_price, in: query, schema: {type: number, minimum: 0}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 100}}
+      responses:
+        "200":
+          description: Products, most popular first
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ProductList"}
+        "400": {$ref: "#/components/responses/Problem"}
+    post:
+      tags: [products]
+      summary: Add a product
+      operationId: createProduct
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/ProductInput"}
+      responses:
+        "201":
+          description: Created
+          headers:
+            Location:
+              schema: {type: string}
+              description: URL of the new product
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Product"}
+        "400": {$ref: "#/components/responses/Problem"}
+        "415": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /api/v1/products/{productId}:
+    parameters:
+      - {name: productId, in: path, required: true, schema: {type: string}}
+    get:
+      tags: [products]
+      summary: Get one product
+      operationId: getProduct
+      responses:
+        "200":
+          description: The product
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Product"}
+        "404": {$ref: "#/components/responses/Problem"}
+    patch:
+      tags: [products]
+      summary: Change some fields of a product
+      operationId: patchProduct
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/ProductPatch"}
+      responses:
+        "200":
+          description: The updated product
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Product"}
+        "404": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+    delete:
+      tags: [products]
+      summary: Remove a product
+      operationId: deleteProduct
+      responses:
+        "204": {description: Deleted}
+        "404": {$ref: "#/components/responses/Problem"}
+  /api/v1/users/{userId}/events:
+    parameters:
+      - {name: userId, in: path, required: true, schema: {type: string}}
+    get:
+      tags: [events]
+      summary: A user's recent activity, newest first
+      operationId: listEvents
+      parameters:
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 50}}
+      responses:
+        "200":
+          description: Events
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/EventList"}
+    post:
+      tags: [events]
+      summary: Record that a user viewed, added to cart, or bought a product
+      operationId: createEvent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/EventInput"}
+      responses:
+        "201":
+          description: Recorded
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Event"}
+        "415": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /api/v1/users/{userId}/recommendations:
+    servers:
+      - url: http://localhost:8080
+        description: Local, through the docker compose facade
+      - url: "{recommendationUrl}"
+        description: Cloud Run recommendation-service (its traffic split is the facade)
+        variables:
+          recommendationUrl:
+            default: https://recommendation-service-REPLACE.a.run.app
+    parameters:
+      - {name: userId, in: path, required: true, schema: {type: string}}
+    get:
+      tags: [recommendations]
+      summary: Products to show this user next
+      description: |
+        Served by v1 (rules) or v2 (AI agent); the response shape is identical.
+        Never returns a product the user already bought, never repeats a product.
+      operationId: listRecommendations
+      parameters:
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 10, default: 5}}
+      responses:
+        "200":
+          description: Recommendations, best first
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/RecommendationList"}
+        "400": {$ref: "#/components/responses/Problem"}
+        "503": {$ref: "#/components/responses/Problem"}
+components:
+  responses:
+    Problem:
+      description: Error in Problem Details format (RFC 9457)
+      content:
+        application/problem+json:
+          schema: {$ref: "#/components/schemas/Problem"}
+  schemas:
+    ProductInput:
+      type: object
+      required: [name, category, price]
+      additionalProperties: false
+      properties:
+        name: {type: string, minLength: 1, example: Mug}
+        category: {type: string, minLength: 1, example: kitchen}
+        price: {type: number, minimum: 0, example: 8.99}
+        description: {type: string, example: A simple ceramic mug}
+        popularity: {type: integer, minimum: 0, default: 0, description: Higher is more popular}
+    ProductPatch:
+      type: object
+      additionalProperties: false
+      properties:
+        name: {type: string, minLength: 1}
+        category: {type: string, minLength: 1}
+        price: {type: number, minimum: 0}
+        description: {type: string}
+        popularity: {type: integer, minimum: 0}
+    Product:
+      type: object
+      required: [id, href, name, category, price, description, popularity]
+      properties:
+        id: {type: string, example: p001}
+        href: {type: string, example: /api/v1/products/p001}
+        name: {type: string, example: Mug}
+        category: {type: string, example: kitchen}
+        price: {type: number, minimum: 0, example: 8.99}
+        description: {type: string, example: A simple ceramic mug}
+        popularity: {type: integer, minimum: 0}
+    ProductList:
+      type: object
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items: {$ref: "#/components/schemas/Product"}
+        total: {type: integer}
+    EventInput:
+      type: object
+      required: [productId, type]
+      additionalProperties: false
+      properties:
+        productId: {type: string, example: p001}
+        type: {type: string, enum: [view, cart, purchase]}
+    Event:
+      type: object
+      required: [id, userId, productId, type, timestamp]
+      properties:
+        id: {type: string}
+        userId: {type: string, example: u42}
+        productId: {type: string, example: p001}
+        type: {type: string, enum: [view, cart, purchase]}
+        timestamp: {type: string, format: date-time}
+    EventList:
+      type: object
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items: {$ref: "#/components/schemas/Event"}
+        total: {type: integer}
+    Recommendation:
+      type: object
+      required: [productId, name, category, reason]
+      properties:
+        productId: {type: string, example: p004}
+        name: {type: string, example: Bamboo Glass Jar}
+        category: {type: string, example: kitchen}
+        reason: {type: string, example: Same category as a recent purchase}
+    RecommendationList:
+      type: object
+      required: [userId, items, total]
+      properties:
+        userId: {type: string, example: u42}
+        items:
+          type: array
+          items: {$ref: "#/components/schemas/Recommendation"}
+        total: {type: integer}
+    Problem:
+      type: object
+      required: [type, title, status, detail]
+      properties:
+        type: {type: string, example: about:blank}
+        title: {type: string, example: Validation failed}
+        status: {type: integer, example: 422}
+        detail: {type: string, example: price must be >= 0}

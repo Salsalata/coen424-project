@@ -1,0 +1,40 @@
+# Continuous Integration: on every push and pull request, GitHub runs all the
+# tests, checks the OpenAPI contract, and builds every Docker image.
+# (Extra feature: "Use Docker and/or DevOps for the project CI/CD";
+# Intro to Docker lecture, slide 5; Monolithic vs Microservices, slides 25-32.)
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          pip install -r catalog-service/requirements.txt -r recommendation-service/requirements.txt \
+                      -r facade/requirements.txt -r requirements-dev.txt
+      - name: Check the OpenAPI contract
+        run: python -c "from openapi_spec_validator import validate; from openapi_spec_validator.readers import read_from_filename; validate(read_from_filename('openapi.yaml')[0]); print('openapi.yaml is valid')"
+      - name: catalog-service tests
+        run: cd catalog-service && python -m pytest -q
+      - name: recommendation-service tests
+        run: cd recommendation-service && python -m pytest -q
+      - name: facade tests
+        run: cd facade && python -m pytest -q
+      - name: end-to-end contract tests
+        run: python -m pytest -q tests
+
+  docker:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build all images
+        run: docker compose build

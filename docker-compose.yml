@@ -1,0 +1,45 @@
+# Local stack: the whole system on your laptop with one command.
+#   docker compose up --build
+# Then use http://localhost:8080 (the facade) exactly like the cloud API.
+#
+# Change the canary step (local rehearsal):
+#   V2_PERCENT=25 docker compose up -d facade      (macOS / Linux / WSL)
+# v2 uses the offline "scripted" stand-in by default; to use real Gemini
+# locally, see docker-compose.gemini.yml.
+services:
+  catalog:
+    build: ./catalog-service
+    environment:
+      STORAGE: memory
+      SEED: "true"
+      WORKERS: "1"  # in-memory data is per process: one worker only (lecture slide 20)
+    ports: ["8081:8080"]
+
+  reco-v1:
+    build: ./recommendation-service
+    environment:
+      RECOMMENDER: v1
+      CATALOG_URL: http://catalog:8080/api/v1
+    ports: ["8082:8080"]
+    depends_on: [catalog]
+
+  reco-v2:
+    build: ./recommendation-service
+    environment:
+      RECOMMENDER: v2
+      CATALOG_URL: http://catalog:8080/api/v1
+      AGENT_MODEL: ${AGENT_MODEL:-scripted}
+      FAULT_MODE: ${FAULT_MODE:-none}
+      AGENT_TIMEOUT_SECONDS: ${AGENT_TIMEOUT_SECONDS:-8}
+    ports: ["8083:8080"]
+    depends_on: [catalog]
+
+  facade:
+    build: ./facade
+    environment:
+      V2_PERCENT: ${V2_PERCENT:-10}
+      CATALOG_UPSTREAM: http://catalog:8080
+      V1_UPSTREAM: http://reco-v1:8080
+      V2_UPSTREAM: http://reco-v2:8080
+    ports: ["8080:8080"]
+    depends_on: [catalog, reco-v1, reco-v2]

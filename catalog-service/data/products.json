@@ -1,0 +1,196 @@
+{
+  "products": [
+    {
+      "id": "p001",
+      "name": "Mug",
+      "category": "kitchen",
+      "price": 8.99,
+      "description": "Ceramic mug, 350 ml",
+      "popularity": 95
+    },
+    {
+      "id": "p002",
+      "name": "Bamboo Glass Jar",
+      "category": "kitchen",
+      "price": 5.49,
+      "description": "Glass storage jar with bamboo lid",
+      "popularity": 60
+    },
+    {
+      "id": "p003",
+      "name": "Salt and Pepper Shakers",
+      "category": "kitchen",
+      "price": 18.49,
+      "description": "Wooden salt and pepper set",
+      "popularity": 40
+    },
+    {
+      "id": "p004",
+      "name": "Chef Knife",
+      "category": "kitchen",
+      "price": 34.0,
+      "description": "20 cm stainless steel chef knife",
+      "popularity": 72
+    },
+    {
+      "id": "p005",
+      "name": "Cutting Board",
+      "category": "kitchen",
+      "price": 22.5,
+      "description": "Oak cutting board",
+      "popularity": 55
+    },
+    {
+      "id": "p006",
+      "name": "Sunglasses",
+      "category": "accessories",
+      "price": 19.99,
+      "description": "Aviator sunglasses",
+      "popularity": 88
+    },
+    {
+      "id": "p007",
+      "name": "Watch",
+      "category": "accessories",
+      "price": 109.99,
+      "description": "Analog watch with leather strap",
+      "popularity": 77
+    },
+    {
+      "id": "p008",
+      "name": "Leather Wallet",
+      "category": "accessories",
+      "price": 39.0,
+      "description": "Slim bifold wallet",
+      "popularity": 50
+    },
+    {
+      "id": "p009",
+      "name": "Tank Top",
+      "category": "clothing",
+      "price": 18.99,
+      "description": "Cotton tank top",
+      "popularity": 64
+    },
+    {
+      "id": "p010",
+      "name": "Denim Jacket",
+      "category": "clothing",
+      "price": 79.0,
+      "description": "Classic blue denim jacket",
+      "popularity": 58
+    },
+    {
+      "id": "p011",
+      "name": "Wool Scarf",
+      "category": "clothing",
+      "price": 29.5,
+      "description": "Merino wool scarf",
+      "popularity": 35
+    },
+    {
+      "id": "p012",
+      "name": "Loafers",
+      "category": "footwear",
+      "price": 89.99,
+      "description": "Leather loafers",
+      "popularity": 47
+    },
+    {
+      "id": "p013",
+      "name": "Running Shoes",
+      "category": "footwear",
+      "price": 119.0,
+      "description": "Lightweight running shoes",
+      "popularity": 91
+    },
+    {
+      "id": "p014",
+      "name": "Wool Socks",
+      "category": "footwear",
+      "price": 12.0,
+      "description": "Pack of 3 wool socks",
+      "popularity": 44
+    },
+    {
+      "id": "p015",
+      "name": "Candle Holder",
+      "category": "home-decor",
+      "price": 18.99,
+      "description": "Brass candle holder",
+      "popularity": 30
+    },
+    {
+      "id": "p016",
+      "name": "Throw Pillow",
+      "category": "home-decor",
+      "price": 24.0,
+      "description": "Linen throw pillow",
+      "popularity": 41
+    },
+    {
+      "id": "p017",
+      "name": "Wall Clock",
+      "category": "home-decor",
+      "price": 45.0,
+      "description": "Minimal wall clock",
+      "popularity": 26
+    },
+    {
+      "id": "p018",
+      "name": "Hairdryer",
+      "category": "beauty",
+      "price": 24.99,
+      "description": "Compact 1600 W hairdryer",
+      "popularity": 52
+    },
+    {
+      "id": "p019",
+      "name": "Face Cream",
+      "category": "beauty",
+      "price": 16.5,
+      "description": "Daily moisturizing cream",
+      "popularity": 67
+    },
+    {
+      "id": "p020",
+      "name": "Yoga Mat",
+      "category": "sports",
+      "price": 32.0,
+      "description": "6 mm non-slip yoga mat",
+      "popularity": 70
+    },
+    {
+      "id": "p021",
+      "name": "Water Bottle",
+      "category": "sports",
+      "price": 15.0,
+      "description": "Insulated steel bottle, 750 ml",
+      "popularity": 83
+    },
+    {
+      "id": "p022",
+      "name": "Dumbbell Set",
+      "category": "sports",
+      "price": 59.0,
+      "description": "Two adjustable dumbbells",
+      "popularity": 38
+    },
+    {
+      "id": "p023",
+      "name": "Wireless Earbuds",
+      "category": "electronics",
+      "price": 69.0,
+      "description": "Bluetooth earbuds with case",
+      "popularity": 96
+    },
+    {
+      "id": "p024",
+      "name": "Phone Charger",
+      "category": "electronics",
+      "price": 19.0,
+      "description": "USB-C fast charger",
+      "popularity": 80
+    }
+  ]
+}

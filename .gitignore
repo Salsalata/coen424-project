@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+.env
+*.json.key
+service-account*.json
+canary-history.log
+loadtest-results*.json
+.DS_Store

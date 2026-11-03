@@ -1,0 +1,17 @@
+# Optional: run v2 with REAL Gemini on your laptop (needs the Google Cloud
+# project, Vertex AI enabled, and `gcloud auth application-default login`).
+#
+#   GOOGLE_CLOUD_PROJECT=your-project-id \
+#   docker compose -f docker-compose.yml -f docker-compose.gemini.yml up --build
+#
+# Your login is mounted read-only into the container; no key file is created
+# and nothing secret goes into git. (Windows: run this from WSL.)
+services:
+  reco-v2:
+    environment:
+      AGENT_MODEL: gemini
+      GOOGLE_CLOUD_PROJECT: ${GOOGLE_CLOUD_PROJECT:?set GOOGLE_CLOUD_PROJECT}
+      VERTEX_LOCATION: ${VERTEX_LOCATION:-us-central1}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+    volumes:
+      - ${HOME}/.config/gcloud:/home/appuser/.config/gcloud:ro
