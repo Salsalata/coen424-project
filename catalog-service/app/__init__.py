@@ -30,8 +30,9 @@ def create_app(config=Config):
     app.register_blueprint(products_bp, url_prefix="/api/v1")
     app.register_blueprint(events_bp, url_prefix="/api/v1")
 
-    @app.get("/healthz")  # for the platform, not for clients
-    def healthz():
+    # Not /healthz: Cloud Run reserves URL paths ending in "z" for itself.
+    @app.get("/health")  # for the platform, not for clients
+    def health():
         return {"status": "ok"}
 
     return app

@@ -15,7 +15,7 @@ def client():
 
 
 def test_health(client):
-    assert client.get("/healthz").get_json() == {"status": "ok"}
+    assert client.get("/health").get_json() == {"status": "ok"}
 
 
 def test_list_is_seeded_and_sorted_by_popularity(client):

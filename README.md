@@ -5,7 +5,7 @@ microservices on Google Cloud Run, data in Firestore, and one component built
 twice: **v1** (rules) and **v2** (an AI agent where Gemini decides which tools
 to call), released with a canary.
 
-- Contract: [`openapi.yaml`](openapi.yaml) (published on SwaggerHub)
+- Contract: [`openapi.yaml`](openapi.yaml) - on SwaggerHub: [product-recommendation-api 1.0.0](https://app.swaggerhub.com/apis/concordiauniversity-6d6/product-recommendation-api/1.0.0)
 - Data model: [`docs/data-model.md`](docs/data-model.md)
 - Canary criteria and steps: [`docs/canary-runbook.md`](docs/canary-runbook.md)
 - Step-by-step from laptop to cloud: [`docs/phase-guide.md`](docs/phase-guide.md)

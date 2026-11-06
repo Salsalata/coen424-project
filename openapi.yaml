@@ -27,11 +27,11 @@ tags:
   - name: recommendations
   - name: platform
 paths:
-  /healthz:
+  /health:
     get:
       tags: [platform]
       summary: Liveness check for the platform (not for clients)
-      operationId: healthz
+      operationId: health
       responses:
         "200":
           description: Service is up

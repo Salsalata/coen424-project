@@ -14,5 +14,5 @@ case "$V2" in ''|*[!0-9]*) echo "usage: $0 <percent to v2, 0-100>" >&2; exit 1 ;
 [ "$V2" -le 100 ] || { echo "percent must be 0-100" >&2; exit 1; }
 V1=$((100 - V2))
 
-gcloud run services update-traffic "$RECO_SERVICE" --region "$REGION" --to-tags "v1=$V1,v2=$V2"
+gcloud run services update-traffic "$RECO_SERVICE" --region "$REGION" --to-tags "rules-v1=$V1,agent-v2=$V2"
 echo "$(date -u +%FT%TZ)  canary step: v1=$V1%  v2=$V2%" | tee -a canary-history.log

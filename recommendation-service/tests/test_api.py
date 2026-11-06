@@ -113,4 +113,4 @@ def test_scripted_model_runs_whole_v2_pipeline_offline(capsys):
 
 
 def test_health_reports_version():
-    assert make("v1").get("/healthz").get_json() == {"status": "ok", "recommender": "v1"}
+    assert make("v1").get("/health").get_json() == {"status": "ok", "recommender": "v1"}

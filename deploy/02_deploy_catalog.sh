@@ -13,5 +13,5 @@ gcloud run deploy "$CATALOG_SERVICE" --source catalog-service --region "$REGION"
 
 CATALOG_URL=$(gcloud run services describe "$CATALOG_SERVICE" --region "$REGION" --format='value(status.url)')
 echo "catalog-service is live at $CATALOG_URL"
-curl -s "$CATALOG_URL/healthz"; echo
+curl -s "$CATALOG_URL/health"; echo
 echo "Next: seed the products once:  python deploy/seed_firestore.py"

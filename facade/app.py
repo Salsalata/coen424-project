@@ -38,7 +38,7 @@ def create_app():
     v2_percent = float(os.getenv("V2_PERCENT", "0"))
     session = requests.Session()
 
-    @app.get("/facade/healthz")
+    @app.get("/facade/health")
     def health():
         return {"status": "ok", "v2_percent": v2_percent}
 

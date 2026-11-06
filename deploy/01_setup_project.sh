@@ -9,8 +9,12 @@ gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregi
   firestore.googleapis.com aiplatform.googleapis.com logging.googleapis.com monitoring.googleapis.com
 
 echo "2/4 Creating the Firestore database (native mode) in $REGION..."
-gcloud firestore databases create --location="$REGION" --type=firestore-native 2>/dev/null \
-  || echo "   (already exists)"
+# Check first instead of hiding errors: a hidden prompt would look like a hang.
+if gcloud firestore databases describe --database="(default)" >/dev/null 2>&1; then
+  echo "   (already exists)"
+else
+  gcloud firestore databases create --location="$REGION" --type=firestore-native --quiet
+fi
 
 echo "3/4 Creating one service account per service (least privilege, no key files)..."
 gcloud iam service-accounts create catalog-sa --display-name="catalog-service" 2>/dev/null || true

@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
-# Step 0, BEFORE any deployment (project requirement 5): a $100 budget with
+# Step 0, BEFORE any deployment (project requirement 5): a 100 (in the billing
+# account's own currency: CAD for a Canadian account) budget with
 # e-mail alerts at 25/50/75/90% of actual spend, limited to this project.
 #
 # Usage:  BILLING_ACCOUNT=XXXXXX-XXXXXX-XXXXXX deploy/00_budget.sh
 #   find the id with:  gcloud billing accounts list
+#
+# No currency on --budget-amount: gcloud requires it to match the billing
+# account's currency (100USD on a CAD account fails with INVALID_ARGUMENT).
 #
 # Why exclude-all-credits: with the $300 free trial, spend is paid by credits,
 # so a budget that subtracts credits would stay near $0 and never alert. We want
@@ -19,7 +23,7 @@ gcloud services enable billingbudgets.googleapis.com
 gcloud billing budgets create \
   --billing-account="$BILLING_ACCOUNT" \
   --display-name="coen424-reco-budget" \
-  --budget-amount=100USD \
+  --budget-amount=100 \
   --filter-projects="projects/$PROJECT_ID" \
   --credit-types-treatment=exclude-all-credits \
   --threshold-rule=percent=0.25 \
@@ -29,4 +33,4 @@ gcloud billing budgets create \
 
 echo "Budget created. Alerts go to the billing account's admins by e-mail."
 gcloud billing budgets list --billing-account="$BILLING_ACCOUNT" \
-  --format="table(displayName, amount.specifiedAmount.units:label=USD)"
+  --format="table(displayName, amount.specifiedAmount.units:label=AMOUNT, amount.specifiedAmount.currencyCode:label=CURRENCY)"

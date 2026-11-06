@@ -1,7 +1,8 @@
 # Canary runbook
 
 The strangler facade is **Cloud Run's traffic split** between two revisions of
-`recommendation-service`: tag `v1` (rules) and tag `v2` (Gemini agent). Same API,
+`recommendation-service`: tag `rules-v1` (rules) and tag `agent-v2` (Gemini agent);
+Cloud Run tags need at least 3 characters, so not just `v1`/`v2`. Same API,
 same image; the `RECOMMENDER` environment variable picks the decision-maker.
 Steps follow the REST lecture (slide 35) and the project's canary criteria.
 

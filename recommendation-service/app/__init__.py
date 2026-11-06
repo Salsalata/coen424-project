@@ -24,8 +24,8 @@ def create_app(config=Config, catalog=None, model=None):
     register_error_handlers(app)
     app.register_blueprint(recommendations_bp, url_prefix="/api/v1")
 
-    @app.get("/healthz")
-    def healthz():
+    @app.get("/health")
+    def health():
         return {"status": "ok", "recommender": app.config["RECOMMENDER"]}
 
     return app
