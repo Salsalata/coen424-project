@@ -11,7 +11,7 @@ at the end records what we actually ran, session by session.
 | 1. Verify locally (Claude's workspace, Docker) | done 2026-10-29 |
 | 2. Your machine + GitHub | **done 2026-11-03**: github.com/Salsalata/coen424-project, CI green (test 33 s, docker 27 s) |
 | 3. SwaggerHub | **done 2026-11-03** (unpublished until the Cloud Run URLs are in): https://app.swaggerhub.com/apis/concordiauniversity-6d6/product-recommendation-api/1.0.0 |
-| 4. Google Cloud: catalog + v1 | in progress: project `coen424-reco-sal`, billing linked, budget 100 CAD, APIs + Firestore + service accounts + log metrics ready; next: `02_deploy_catalog.sh` |
+| 4. Google Cloud: catalog + v1 | **done 2026-11-05**: catalog + v1 live on Cloud Run, products in Firestore (URLs in the README) |
 | 5. v2 with real Gemini | not started |
 | 6. Canary + rollback demo | not started |
 | 7. Report + slides + rehearsal | not started |
@@ -36,7 +36,7 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -r catalog-service/requirements.txt -r recommendation-service/requirements.txt \
             -r facade/requirements.txt -r requirements-dev.txt
 (cd catalog-service && python -m pytest -q) && (cd recommendation-service && python -m pytest -q) \
-  && (cd facade && python -m pytest -q) && python -m pytest -q tests          # 15, 22, 3, 3 passed
+  && (cd facade && python -m pytest -q) && python -m pytest -q tests          # 16, 23, 3, 3 passed
 
 docker compose up --build -d
 curl -s "localhost:8080/api/v1/users/u42/recommendations?limit=3" | python3 -m json.tool
@@ -199,3 +199,8 @@ What we actually ran, in order. Machine in brackets.
 | `deploy/02_deploy_catalog.sh` | Cloud Build builds the image; Cloud Run runs it | **deployed**: `https://catalog-service-187893550568.northamerica-northeast1.run.app`. But `/healthz` returned **Google's** 404: Cloud Run reserves paths ending in `z`. Renamed to **`/health`** everywhere |
 | `gcloud auth application-default login` (all boxes ticked) / `python deploy/seed_firestore.py` | local login; writes the products | **Seeded 24 products** into Firestore |
 | `deploy/03_deploy_v1.sh` | deploys v1 with tag `v1` | **failed**: `tag: must be at least 3 characters long`. Tags renamed **`rules-v1`** / **`agent-v2`** in `03`, `04` and `canary.sh` |
+| `unzip -o ~/Downloads/reco-api-update.zip -d .`; tests; `git add -A`; commit `15f3b0b`; `git push` | updates every file in place, then saves and uploads | 15/22/3/3 passed; pushed. A stray sed backup `deploy/config.shcoen424-reco-sal` got committed too: removed with `git rm` |
+| `deploy/02_deploy_catalog.sh` (again) | catalog revision with `/health` | `{"status":"ok"}` |
+| `deploy/03_deploy_v1.sh` | recommendation-service, tag `rules-v1` | **live**: https://recommendation-service-187893550568.northamerica-northeast1.run.app, 100% on `rules-v1`; tag URL `https://rules-v1---recommendation-service-pxxbzokq2a-nn.a.run.app` |
+| `curl` products / POST event / GET recommendations on the live URLs | end-to-end test in the cloud | products from Firestore; event id `dYBagKBu…` (a Firestore auto id); recommendations: Chef Knife, Bamboo Glass Jar, Cutting Board, without the Mug |
+| (Claude) real URLs in `openapi.yaml` + README; CORS headers in both services (+2 tests) | lets SwaggerHub's "Try it out" call the live API | 16, 23, 3, 3 tests pass |

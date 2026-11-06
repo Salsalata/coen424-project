@@ -114,3 +114,8 @@ def test_scripted_model_runs_whole_v2_pipeline_offline(capsys):
 
 def test_health_reports_version():
     assert make("v1").get("/health").get_json() == {"status": "ok", "recommender": "v1"}
+
+
+def test_cors_header_on_recommendations():
+    r = make("v1").get("/health", headers={"Origin": "https://app.swaggerhub.com"})
+    assert r.headers["Access-Control-Allow-Origin"] == "*"

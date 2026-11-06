@@ -10,6 +10,15 @@ to call), released with a canary.
 - Canary criteria and steps: [`docs/canary-runbook.md`](docs/canary-runbook.md)
 - Step-by-step from laptop to cloud: [`docs/phase-guide.md`](docs/phase-guide.md)
 
+## Live on Google Cloud (project `coen424-reco-sal`, Montréal)
+
+| Service | URL | Try |
+| --- | --- | --- |
+| catalog-service | https://catalog-service-187893550568.northamerica-northeast1.run.app | `/api/v1/products?limit=3` |
+| recommendation-service (v1, tag `rules-v1`, 100%) | https://recommendation-service-187893550568.northamerica-northeast1.run.app | `/api/v1/users/demo1/recommendations?limit=3` |
+
+Health checks are at `/health` (not `/healthz`: Cloud Run reserves paths ending in `z`).
+
 ## Layout
 
 ```

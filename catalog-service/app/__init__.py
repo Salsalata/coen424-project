@@ -30,6 +30,18 @@ def create_app(config=Config):
     app.register_blueprint(products_bp, url_prefix="/api/v1")
     app.register_blueprint(events_bp, url_prefix="/api/v1")
 
+    # CORS: lets browser pages on other sites (SwaggerHub's "Try it out") call
+    # this public API. Flask answers the browser's OPTIONS pre-check itself;
+    # this hook adds the headers that say which origins, methods and headers
+    # are allowed. No cookies or credentials are involved.
+    @app.after_request
+    def add_cors_headers(response):
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PATCH, DELETE, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        response.headers["Access-Control-Expose-Headers"] = "Location"
+        return response
+
     # Not /healthz: Cloud Run reserves URL paths ending in "z" for itself.
     @app.get("/health")  # for the platform, not for clients
     def health():

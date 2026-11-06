@@ -20,7 +20,7 @@ servers:
     description: Cloud Run catalog-service (products, events)
     variables:
       catalogUrl:
-        default: https://catalog-service-REPLACE.a.run.app
+        default: https://catalog-service-187893550568.northamerica-northeast1.run.app
 tags:
   - name: products
   - name: events
@@ -157,7 +157,7 @@ paths:
         description: Cloud Run recommendation-service (its traffic split is the facade)
         variables:
           recommendationUrl:
-            default: https://recommendation-service-REPLACE.a.run.app
+            default: https://recommendation-service-187893550568.northamerica-northeast1.run.app
     parameters:
       - {name: userId, in: path, required: true, schema: {type: string}}
     get:

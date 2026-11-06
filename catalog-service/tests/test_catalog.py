@@ -102,3 +102,15 @@ def test_event_bad_type_is_422(client):
 
 def test_unknown_user_has_no_events(client):
     assert client.get("/api/v1/users/nobody/events").get_json() == {"items": [], "total": 0}
+
+
+def test_cors_preflight_allows_swaggerhub(client):
+    """A browser asks OPTIONS before a cross-site POST with JSON."""
+    r = client.options("/api/v1/products", headers={
+        "Origin": "https://app.swaggerhub.com",
+        "Access-Control-Request-Method": "POST",
+        "Access-Control-Request-Headers": "Content-Type"})
+    assert r.status_code == 200
+    assert r.headers["Access-Control-Allow-Origin"] == "*"
+    assert "POST" in r.headers["Access-Control-Allow-Methods"]
+    assert r.headers["Access-Control-Allow-Headers"] == "Content-Type"
