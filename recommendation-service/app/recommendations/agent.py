@@ -22,7 +22,10 @@ Rules:
 - Only recommend products returned by the tools, using their ids exactly.
 - Never recommend a product the user already purchased.
 - No duplicates. Return exactly LIMIT items, or all remaining products if fewer exist.
-- Give each item one short reason a shopper would understand.
+- Personalise: prefer products related to the user's recent activity (the same
+  categories, or items that go well with what they viewed, carted or bought);
+  use overall popularity only to break ties or when the user has no activity.
+- Give each item one short reason a shopper would understand, tied to their activity when possible.
 Be quick: in your first turn, call get_user_events and search_products together.
 Finish by calling submit_recommendations exactly once."""
 

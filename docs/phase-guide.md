@@ -12,7 +12,7 @@ at the end records what we actually ran, session by session.
 | 2. Your machine + GitHub | **done 2026-11-03**: github.com/Salsalata/coen424-project, CI green (test 33 s, docker 27 s) |
 | 3. SwaggerHub | **done 2026-11-03** (unpublished until the Cloud Run URLs are in): https://app.swaggerhub.com/apis/concordiauniversity-6d6/product-recommendation-api/1.0.0 |
 | 4. Google Cloud: catalog + v1 | **done 2026-11-05**: catalog + v1 live on Cloud Run, products in Firestore (URLs in the README) |
-| 5. v2 with real Gemini | **in progress** (2026-11-20): model switched to `gemini-3.8-flash` on `global`, prices set; v2 not deployed yet |
+| 5. v2 with real Gemini | **in progress** (2026-11-20): v2 deployed at 0% (tag `agent-v2`), `gemini-3.5-flash-lite` on `global`; 10% baseline 100% correct, p95 2.1 s; X/Y set. Remaining: quality comparison |
 | 6. Canary + rollback demo | not started |
 | 7. Report + slides + rehearsal | not started |
 
@@ -129,7 +129,7 @@ curl -s "$RECO/api/v1/users/u42/recommendations?limit=3"
 
 ## Phase 5: v2 with real Gemini
 
-1. In the Vertex AI pricing page, find the pinned model (now `gemini-3.8-flash`; `gemini-2.5-flash` was retired on Vertex AI on 2026-10-20) and copy the input and output prices per 1M tokens into `PRICE_INPUT_PER_M` and `PRICE_OUTPUT_PER_M` in `deploy/config.sh`.
+1. In the Vertex AI pricing page, find the pinned model (now `gemini-3.5-flash-lite`; `gemini-2.5-flash` was retired on Vertex AI on 2026-10-20) and copy the input and output prices per 1M tokens into `PRICE_INPUT_PER_M` and `PRICE_OUTPUT_PER_M` in `deploy/config.sh`.
 2. Optional: try real Gemini locally first, at a cost of a few cents:
    `GOOGLE_CLOUD_PROJECT=$PROJECT_ID AGENT_MODEL=gemini docker compose -f docker-compose.yml -f docker-compose.gemini.yml up --build`
 3. Deploy v2 with no traffic: `deploy/04_deploy_v2.sh`. Call v2 on its **tag URL** (printed by the script) a few times.
@@ -221,3 +221,11 @@ What we actually ran, in order. Machine in brackets.
 | (Claude) agent stops at the deadline; per-call HTTP timeout; `thinking_level=LOW`; prompt asks for events + products in one turn; tool results carry the call `id` | make v2 faster and stop abandoned agents | tests: 16, 25 (+2 new), 3, 3 pass |
 | `python measure_agent.py DEFAULT 3` / `LOW 3` (laptop, real Gemini, live catalog read-only) | compare thinking levels | both 2 turns. DEFAULT: 8.0-11.9 s, $0.004-0.007. **LOW: 2.7-4.6 s, $0.0013** |
 | `AGENT_TIMEOUT_SECONDS=10 deploy/04_deploy_v2.sh` then 5 requests on the tag URL | v2 with the changes, 0% traffic | **all 5 `source: agent`, `valid: true`, 2 turns**; first (cold) 6.5 s / $0.0038, then **2.7-3.1 s / ~$0.0013**. Timeout default raised to 10 s in `04_deploy_v2.sh`, `config.py`, `docker-compose.yml` |
+| `canary.sh 10` + `loadtest.py ... --duration 180 --concurrency 4` + `report.sh 5` (first try) | 10% baseline | typo `--reco-url "RECO"` (no `$`): every request failed locally, nothing reached the cloud; 20 shoppers seeded in Firestore |
+| same, fixed | 10% baseline with `gemini-3.8-flash` | v1: 874 req, p95 86 ms, 100% correct. **v2: 90 req, 62% correct, 34 fallbacks, p95 = 10,059 ms (the timeout)**, $0.0010/req. Reasons: 26 x `504 DEADLINE_EXCEEDED` from Gemini, 8 x timeout, 1 x invalid answer (empty product ids, caught by the validator). `canary.sh 0` after |
+| `measure_agent.py --runs 4 --parallel 1` / `--parallel 4` (laptop, live catalog read-only) | is it concurrency or the model? | `gemini-3.8-flash`: 4.1-24.6 s alone; **3 of 4 failed (504) with 4 at once**. `gemini-3.5-flash-lite`: 1.5-2.5 s alone, 2.6-2.8 s with 4 at once, all valid, **but picks were just the most popular products** (ignored history) |
+| (Claude) system prompt: explicit rule to personalise from the user's activity | smaller models follow instructions literally | tests pass; Flash-Lite with 4 at once: 2.9-3.1 s, all valid, kitchen picks with reasons mentioning the Mug |
+| `measure_agent.py --model gemini-3.5-flash` / `gemini-4-hydrogen`, 4 at once | other candidates | 3.5 Flash: 5.7-13.0 s, valid, best reasons, ~5x the output tokens. 4 Hydrogen: **429 RESOURCE_EXHAUSTED** on all 4 (quota) |
+| (Claude) `GEMINI_MODEL=gemini-3.5-flash-lite`, prices **0.30 / 2.50** USD per 1M tokens (`deploy/config.sh`, `config.py`, `docker-compose.gemini.yml`) | chosen: fast, stable under concurrency, personalised, cheapest | redeploy + new 10% baseline next |
+| `deploy/04_deploy_v2.sh` (after `unset` + re-`source`), warm-up, `canary.sh 10`, `loadtest.py --duration 180 --concurrency 4`, `report.sh 5`, `canary.sh 0` | 10% baseline with `gemini-3.5-flash-lite` | **v2: 248 req (9.2%), 100% correct, 0 fallbacks, 0 errors, p95 2,069 ms, $0.00084/req**; v1: 2,454 req, p95 79 ms. Total v2 model cost $0.21 |
+| (Claude) X = 4,000 ms and Y = $0.002 in `docs/canary-runbook.md`, with the baseline table | thresholds fixed before the next canary steps | Phase 5 done except the quality comparison |

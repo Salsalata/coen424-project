@@ -8,14 +8,36 @@ Steps follow the REST lecture (slide 35) and the project's canary criteria.
 
 ## Criteria table (defined before the canary starts)
 
-Thresholds `X` and `Y` are set after measuring v1 and a first v2 baseline (week 10).
+Thresholds `X` (latency) and `Y` (cost) were set on 2026-11-21 from the 10% baseline
+below, **before** any further canary step.
 
 | Metric | How it is measured | Threshold | Action if violated |
 | --- | --- | --- | --- |
 | Availability | 5xx and timeouts of the v2 revision (dashboard tile 2; `error_rate_pct` in `deploy/report.sh`) | ≤ 1% | `deploy/canary.sh 0` (roll back) |
-| Latency | p95 latency of the v2 revision (dashboard tile 3; `latency_ms_p95`) | ≤ X ms | roll back |
+| Latency | p95 latency of the v2 revision (dashboard tile 3; `latency_ms_p95`) | **X = 4,000 ms** | roll back |
 | Correctness | share of v2 requests whose own answer passed the validator; a fallback counts as a failure (dashboard tile 4; `correct_pct`) | ≥ 99% | roll back |
-| Cost | model cost per v2 request from logged tokens × Vertex AI price (`model_cost_per_request_usd`), compared with v1 and the budget | ≤ $Y per request | hold the step or roll back |
+| Cost | model cost per v2 request from logged tokens × Vertex AI price (`model_cost_per_request_usd`), compared with v1 and the budget | **Y = $0.002 per request** | hold the step or roll back |
+
+Why these values:
+- **X = 4,000 ms**: about 2× the measured v2 p95 (2,069 ms), so normal variation and
+  cold starts do not trip it, and well below the 10 s agent deadline, so a v2 that
+  starts to slow down is rolled back before its requests begin to fall back.
+- **Y = $0.002**: about 2.4× the measured cost per v2 request ($0.00084), so it
+  tolerates longer histories, and it catches a real regression: a pricier model or
+  more thinking (`gemini-3.8-flash` with default thinking measured $0.004-0.007).
+
+### 10% baseline (2026-11-21, Cloud Run, `gemini-3.5-flash-lite`, thinking LOW, 10 s deadline)
+
+`deploy/canary.sh 10`, `loadtest.py --duration 180 --concurrency 4`, `deploy/report.sh 5`, then `deploy/canary.sh 0`.
+
+| Version | Requests | Share | Errors | p95 | Correct | Fallbacks | Cost per request |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| v1 (rules) | 2,454 | 90.8% | 0% | 79 ms | 100% | 0 | $0 |
+| v2 (agent) | 248 | 9.2% | 0% | 2,069 ms | 100% | 0 | $0.00084 (1,337 in / 177 out tokens) |
+
+An earlier 10% baseline with `gemini-3.8-flash` failed the correctness criterion
+(62% correct, 34 of 90 fell back, mostly `504 DEADLINE_EXCEEDED` from Gemini); that is
+why v2 now uses `gemini-3.5-flash-lite` (comparison in `docs/phase-guide.md`).
 
 ## Steps
 

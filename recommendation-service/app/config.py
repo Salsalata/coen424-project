@@ -17,7 +17,7 @@ class Config:
 
     # v2 only
     AGENT_MODEL = os.getenv("AGENT_MODEL", "gemini")  # "gemini" or "scripted" (offline stand-in, not AI)
-    GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")  # pinned model version
+    GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")  # pinned model version
     GEMINI_THINKING_LEVEL = os.getenv("GEMINI_THINKING_LEVEL", "LOW")  # LOW | MEDIUM | HIGH; "" = model default
     VERTEX_PROJECT = os.getenv("VERTEX_PROJECT") or os.getenv("GOOGLE_CLOUD_PROJECT")
     VERTEX_LOCATION = os.getenv("VERTEX_LOCATION", "global")
