@@ -11,7 +11,7 @@ cd "$(dirname "$0")/.."
 
 gcloud run deploy "$RECO_SERVICE" --source recommendation-service --region "$REGION" \
   --service-account "$RECO_SA" --no-traffic --tag agent-v2 \
-  --update-env-vars "RECOMMENDER=v2,AGENT_MODEL=gemini,GEMINI_MODEL=$GEMINI_MODEL,VERTEX_PROJECT=$PROJECT_ID,VERTEX_LOCATION=$VERTEX_LOCATION,FAULT_MODE=${FAULT_MODE:-none},AGENT_TIMEOUT_SECONDS=${AGENT_TIMEOUT_SECONDS:-8},PRICE_INPUT_PER_M=$PRICE_INPUT_PER_M,PRICE_OUTPUT_PER_M=$PRICE_OUTPUT_PER_M"
+  --update-env-vars "RECOMMENDER=v2,AGENT_MODEL=gemini,GEMINI_MODEL=$GEMINI_MODEL,VERTEX_PROJECT=$PROJECT_ID,VERTEX_LOCATION=$VERTEX_LOCATION,FAULT_MODE=${FAULT_MODE:-none},AGENT_TIMEOUT_SECONDS=${AGENT_TIMEOUT_SECONDS:-10},PRICE_INPUT_PER_M=$PRICE_INPUT_PER_M,PRICE_OUTPUT_PER_M=$PRICE_OUTPUT_PER_M"
 
 # Each tag also gets its own URL, so v2 can be tried directly before it gets traffic
 gcloud run services describe "$RECO_SERVICE" --region "$REGION" \

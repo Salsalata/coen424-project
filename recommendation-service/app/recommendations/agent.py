@@ -23,6 +23,7 @@ Rules:
 - Never recommend a product the user already purchased.
 - No duplicates. Return exactly LIMIT items, or all remaining products if fewer exist.
 - Give each item one short reason a shopper would understand.
+Be quick: in your first turn, call get_user_events and search_products together.
 Finish by calling submit_recommendations exactly once."""
 
 TOOLS = [
@@ -117,7 +118,11 @@ class AgentRecommender:
             return _short(product) if product else {"error": "product not found"}
         return {"error": f"unknown tool {call.name}"}
 
-    def recommend(self, context, limit):
+    def recommend(self, context, limit, deadline=None):
+        """deadline: a time.monotonic() value. The service stops WAITING at the
+        deadline but cannot kill this thread, so the agent itself stops calling
+        the model once the deadline has passed: an abandoned request must not
+        keep spending tokens (which nobody would log) or compete with new ones."""
         if self.fault_mode == "error":
             raise AgentError("injected fault: error")
         if self.fault_mode == "slow":
@@ -126,6 +131,8 @@ class AgentRecommender:
         history = [{"role": "user", "text": f"User: {context.user_id}\nLIMIT={limit} (number of products to recommend)"}]
         outcome = AgentOutcome(items=[])
         for _ in range(self.max_turns):
+            if deadline is not None and time.monotonic() >= deadline:
+                raise AgentError("stopped: deadline passed")
             turn = self.model.run_turn(history, SYSTEM.replace("LIMIT", str(limit)), TOOLS)
             outcome.turns += 1
             outcome.input_tokens += turn.input_tokens
@@ -146,5 +153,6 @@ class AgentRecommender:
                         outcome.items[-1]["productId"] = "NOT_A_PRODUCT"
                     return outcome
                 results.append((call.name, self._run_tool(call, context)))
-            history.append({"role": "tool", "results": results})
+            ids = [c.id for c in turn.calls if c.name != "submit_recommendations"]
+            history.append({"role": "tool", "results": results, "ids": ids})
         raise AgentError(f"no answer after {self.max_turns} model turns")

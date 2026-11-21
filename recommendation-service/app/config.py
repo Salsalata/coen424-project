@@ -17,10 +17,11 @@ class Config:
 
     # v2 only
     AGENT_MODEL = os.getenv("AGENT_MODEL", "gemini")  # "gemini" or "scripted" (offline stand-in, not AI)
-    GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")  # pinned model version
+    GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")  # pinned model version
+    GEMINI_THINKING_LEVEL = os.getenv("GEMINI_THINKING_LEVEL", "LOW")  # LOW | MEDIUM | HIGH; "" = model default
     VERTEX_PROJECT = os.getenv("VERTEX_PROJECT") or os.getenv("GOOGLE_CLOUD_PROJECT")
-    VERTEX_LOCATION = os.getenv("VERTEX_LOCATION", "us-central1")
-    AGENT_TIMEOUT_SECONDS = float(os.getenv("AGENT_TIMEOUT_SECONDS", "8"))
+    VERTEX_LOCATION = os.getenv("VERTEX_LOCATION", "global")
+    AGENT_TIMEOUT_SECONDS = float(os.getenv("AGENT_TIMEOUT_SECONDS", "10"))  # measured 2026-11-21: warm v2 ~2.7-3.1 s, cold ~6.5 s
     AGENT_MAX_TURNS = int(os.getenv("AGENT_MAX_TURNS", "6"))
     FALLBACK_ENABLED = _flag("FALLBACK_ENABLED", True)
     FAULT_MODE = os.getenv("FAULT_MODE", "none")  # none | invalid_ids | slow | error

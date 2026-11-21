@@ -12,7 +12,7 @@ at the end records what we actually ran, session by session.
 | 2. Your machine + GitHub | **done 2026-11-03**: github.com/Salsalata/coen424-project, CI green (test 33 s, docker 27 s) |
 | 3. SwaggerHub | **done 2026-11-03** (unpublished until the Cloud Run URLs are in): https://app.swaggerhub.com/apis/concordiauniversity-6d6/product-recommendation-api/1.0.0 |
 | 4. Google Cloud: catalog + v1 | **done 2026-11-05**: catalog + v1 live on Cloud Run, products in Firestore (URLs in the README) |
-| 5. v2 with real Gemini | not started |
+| 5. v2 with real Gemini | **in progress** (2026-11-20): model switched to `gemini-3.8-flash` on `global`, prices set; v2 not deployed yet |
 | 6. Canary + rollback demo | not started |
 | 7. Report + slides + rehearsal | not started |
 
@@ -129,7 +129,7 @@ curl -s "$RECO/api/v1/users/u42/recommendations?limit=3"
 
 ## Phase 5: v2 with real Gemini
 
-1. In the Vertex AI pricing page, find `gemini-2.5-flash` and copy the input and output prices per 1M tokens into `PRICE_INPUT_PER_M` and `PRICE_OUTPUT_PER_M` in `deploy/config.sh`.
+1. In the Vertex AI pricing page, find the pinned model (now `gemini-3.8-flash`; `gemini-2.5-flash` was retired on Vertex AI on 2026-10-20) and copy the input and output prices per 1M tokens into `PRICE_INPUT_PER_M` and `PRICE_OUTPUT_PER_M` in `deploy/config.sh`.
 2. Optional: try real Gemini locally first, at a cost of a few cents:
    `GOOGLE_CLOUD_PROJECT=$PROJECT_ID AGENT_MODEL=gemini docker compose -f docker-compose.yml -f docker-compose.gemini.yml up --build`
 3. Deploy v2 with no traffic: `deploy/04_deploy_v2.sh`. Call v2 on its **tag URL** (printed by the script) a few times.
@@ -204,3 +204,20 @@ What we actually ran, in order. Machine in brackets.
 | `deploy/03_deploy_v1.sh` | recommendation-service, tag `rules-v1` | **live**: https://recommendation-service-187893550568.northamerica-northeast1.run.app, 100% on `rules-v1`; tag URL `https://rules-v1---recommendation-service-pxxbzokq2a-nn.a.run.app` |
 | `curl` products / POST event / GET recommendations on the live URLs | end-to-end test in the cloud | products from Firestore; event id `dYBagKBu…` (a Firestore auto id); recommendations: Chef Knife, Bamboo Glass Jar, Cutting Board, without the Mug |
 | (Claude) real URLs in `openapi.yaml` + README; CORS headers in both services (+2 tests) | lets SwaggerHub's "Try it out" call the live API | 16, 23, 3, 3 tests pass |
+
+### 2026-11-20: Phase 5 start (teammate's MacBook, macOS)
+
+| Command | What it does | Result |
+| --- | --- | --- |
+| `gcloud run services list --region northamerica-northeast1` | read-only check of the new `roles/editor` access | both services listed; last deployed 2026-11-06, no v2 yet |
+| `python probe_model.py gemini-3.8-flash global` (our `GeminiModel`, 2 tiny requests) | tool-call turn, then a tool-result turn | **OK**: no change needed for `temperature=0` or function-response ids |
+| same, `us-central1` and `northamerica-northeast1` | same probe in other locations | **404 NOT_FOUND**: model only reachable on `global` |
+| (Claude) `GEMINI_MODEL=gemini-3.8-flash`, `VERTEX_LOCATION=global` in `deploy/config.sh`, `config.py`, `docker-compose.gemini.yml` | `gemini-2.5-flash` retired on Vertex AI 2026-10-20 (per Google's model-versions page) | recommendation-service tests pass |
+| (Claude) `PRICE_INPUT_PER_M=0.75`, `PRICE_OUTPUT_PER_M=3.75` in `deploy/config.sh` | USD per 1M tokens, read from the Vertex AI pricing page by the teammate | cost_usd in the logs will use these |
+| `docker compose -f docker-compose.yml -f docker-compose.gemini.yml up --build -d` + `GET localhost:8083/…/recommendations` (local smoke test, real Gemini) | first try: v2 used `gemini-2.5-flash` @ `us-central1` | **404, fallback**: `source: fallback, valid: false`. Cause: the shell still had `GEMINI_MODEL`/`VERTEX_LOCATION`/`PRICE_*` exported from an earlier `source deploy/config.sh`, which override defaults (`${VAR:-default}`). Fix: `unset` them, re-source, recreate |
+| same, after the fix: 1st request | cold request | **timed out after 8.0 s → fallback** (`valid: false`) |
+| same: 2nd request | warm request | **OK**: `model gemini-3.8-flash`, 3 turns (`get_user_events`, `search_products`, `submit_recommendations`), 1428 in / 414 out tokens, `source: agent`, `valid: true`, **6.6 s** (close to the 8 s deadline; `cost_usd` is 0 locally because compose passes no prices) |
+| `AGENT_TIMEOUT_SECONDS=30 deploy/04_deploy_v2.sh` then 5 requests on the `agent-v2` tag URL | measure v2 without the 8 s cut-off | 2 succeeded (4-5 turns, **15.3 s and 20.7 s**, ~$0.006), then 4 timed out at 30 s. Found: a timed-out agent kept calling Gemini in the background (unlogged spend) |
+| (Claude) agent stops at the deadline; per-call HTTP timeout; `thinking_level=LOW`; prompt asks for events + products in one turn; tool results carry the call `id` | make v2 faster and stop abandoned agents | tests: 16, 25 (+2 new), 3, 3 pass |
+| `python measure_agent.py DEFAULT 3` / `LOW 3` (laptop, real Gemini, live catalog read-only) | compare thinking levels | both 2 turns. DEFAULT: 8.0-11.9 s, $0.004-0.007. **LOW: 2.7-4.6 s, $0.0013** |
+| `AGENT_TIMEOUT_SECONDS=10 deploy/04_deploy_v2.sh` then 5 requests on the tag URL | v2 with the changes, 0% traffic | **all 5 `source: agent`, `valid: true`, 2 turns**; first (cold) 6.5 s / $0.0038, then **2.7-3.1 s / ~$0.0013**. Timeout default raised to 10 s in `04_deploy_v2.sh`, `config.py`, `docker-compose.yml` |

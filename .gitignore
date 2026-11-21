@@ -9,3 +9,6 @@ service-account*.json
 canary-history.log
 loadtest-results*.json
 .DS_Store
+
+# Local Claude Code guidance
+CLAUDE.md

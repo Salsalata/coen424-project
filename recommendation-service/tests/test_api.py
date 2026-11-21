@@ -2,6 +2,7 @@
 canary-relevant behaviour of v2: fallback, deadline, logging of tokens."""
 
 import json
+import time
 
 import pytest
 
@@ -119,3 +120,25 @@ def test_health_reports_version():
 def test_cors_header_on_recommendations():
     r = make("v1").get("/health", headers={"Origin": "https://app.swaggerhub.com"})
     assert r.headers["Access-Control-Allow-Origin"] == "*"
+
+
+def test_agent_stops_calling_the_model_once_the_deadline_has_passed(catalog):
+    """An abandoned agent must not keep spending tokens after the service gave up on it."""
+    from app.recommendations.agent import AgentError, AgentRecommender
+    from app.recommendations.context import load_context
+
+    model = FakeModel([[("get_user_events", {"limit": 5})]] * 6)
+    agent = AgentRecommender(model, catalog)
+    with pytest.raises(AgentError, match="deadline"):
+        agent.recommend(load_context(catalog, "u1"), 2, deadline=time.monotonic() - 1)
+    assert model.seen == []  # not a single model call
+
+
+def test_timed_out_agent_does_not_call_the_model_afterwards(capsys):
+    model = FakeModel([SUBMIT_GOOD])
+    client = make(model=model, FAULT_MODE="slow", AGENT_TIMEOUT_SECONDS=0.2)
+    client.application.extensions["recommendations"].agent.slow_seconds = 0.4
+    client.get("/api/v1/users/u1/recommendations?limit=2")
+    assert "timed out" in last_log(capsys)["reason"]
+    time.sleep(0.5)  # the abandoned agent wakes up after its deadline...
+    assert model.seen == []  # ...and stops instead of calling the model

@@ -30,7 +30,7 @@ services:
       CATALOG_URL: http://catalog:8080/api/v1
       AGENT_MODEL: ${AGENT_MODEL:-scripted}
       FAULT_MODE: ${FAULT_MODE:-none}
-      AGENT_TIMEOUT_SECONDS: ${AGENT_TIMEOUT_SECONDS:-8}
+      AGENT_TIMEOUT_SECONDS: ${AGENT_TIMEOUT_SECONDS:-10}
     ports: ["8083:8080"]
     depends_on: [catalog]
 

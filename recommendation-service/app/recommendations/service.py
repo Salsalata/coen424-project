@@ -56,7 +56,8 @@ class RecommendationService:
             return self._response(user_id, items, context)
 
         items, reason, outcome = None, None, None
-        pending = self.pool.submit(self.agent.recommend, context, limit)
+        deadline = time.monotonic() + self.timeout  # the agent also stops itself here
+        pending = self.pool.submit(self.agent.recommend, context, limit, deadline)
         try:
             outcome = pending.result(timeout=self.timeout)
             check = validate_items(outcome.items, context, limit)
@@ -118,7 +119,9 @@ def build_recommendation_service(config, catalog, model=None):
             model = ScriptedModel()
         else:
             model = GeminiModel(config["GEMINI_MODEL"], config["VERTEX_PROJECT"], config["VERTEX_LOCATION"],
-                                labels={"service": "recommendation", "version": "v2"})
+                                labels={"service": "recommendation", "version": "v2"},
+                                thinking_level=config.get("GEMINI_THINKING_LEVEL") or None,
+                                timeout_seconds=config["AGENT_TIMEOUT_SECONDS"])
     model_name = config["GEMINI_MODEL"] if isinstance(model, GeminiModel) else getattr(model, "name", "custom")
     agent = AgentRecommender(model, catalog, max_turns=config["AGENT_MAX_TURNS"], fault_mode=config["FAULT_MODE"])
     return RecommendationService("v2", catalog, rules, agent, timeout=config["AGENT_TIMEOUT_SECONDS"],

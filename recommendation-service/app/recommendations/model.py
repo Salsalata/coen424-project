@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 class ToolCall:
     name: str
     args: dict
+    id: str = None  # Gemini 3.x requires each tool result to carry its call's id
 
 
 @dataclass
@@ -41,12 +42,17 @@ class Tool:
 
 
 class GeminiModel:
-    def __init__(self, model, project, location, labels=None):
+    def __init__(self, model, project, location, labels=None, thinking_level=None, timeout_seconds=None):
         from google import genai  # imported here so v1 and tests never need it
+        from google.genai import types
 
         self.model = model
         self.labels = labels or {}
-        self.client = genai.Client(vertexai=True, project=project, location=location)
+        # LOW thinking = fewer (billed) thinking tokens and faster turns; None = the model's default
+        self.thinking_level = thinking_level
+        # One Gemini call may never take longer than the whole request deadline (SDK unit: ms)
+        http_options = types.HttpOptions(timeout=int(timeout_seconds * 1000)) if timeout_seconds else None
+        self.client = genai.Client(vertexai=True, project=project, location=location, http_options=http_options)
 
     def run_turn(self, history, system, tools):
         from google.genai import types
@@ -54,6 +60,7 @@ class GeminiModel:
         config = types.GenerateContentConfig(
             system_instruction=system,
             temperature=0,
+            thinking_config=types.ThinkingConfig(thinking_level=self.thinking_level) if self.thinking_level else None,
             tools=[
                 types.Tool(
                     function_declarations=[
@@ -73,7 +80,7 @@ class GeminiModel:
             model=self.model, contents=[self._content(h, types) for h in history], config=config
         )
         usage = response.usage_metadata
-        calls = [ToolCall(fc.name, dict(fc.args or {})) for fc in (response.function_calls or [])]
+        calls = [ToolCall(fc.name, dict(fc.args or {}), fc.id) for fc in (response.function_calls or [])]
         text = ""
         if not calls and response.candidates and response.candidates[0].content:
             text = "".join(p.text or "" for p in response.candidates[0].content.parts or [])
@@ -92,9 +99,13 @@ class GeminiModel:
             return types.Content(role="user", parts=[types.Part.from_text(text=entry["text"])])
         if entry["role"] == "model":
             return entry["raw"]  # unchanged, so Gemini keeps its own context (thought signatures)
+        ids = entry.get("ids") or [None] * len(entry["results"])
         return types.Content(  # tool results go back with role "user", as the SDK itself does
             role="user",
-            parts=[types.Part.from_function_response(name=n, response=r) for n, r in entry["results"]],
+            parts=[
+                types.Part(function_response=types.FunctionResponse(id=i, name=n, response=r))
+                for (n, r), i in zip(entry["results"], ids)
+            ],
         )
 
 
