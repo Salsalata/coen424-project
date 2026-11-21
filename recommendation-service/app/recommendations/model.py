@@ -41,8 +41,16 @@ class Tool:
     parameters: dict  # JSON schema of the arguments
 
 
+class ModelTimeout(Exception):
+    """One model call was too slow or failed transiently (timeout, 500/503/504,
+    lost connection). Safe to retry: nothing was decided yet in this turn."""
+
+
+RETRYABLE_STATUS = (500, 503, 504)
+
+
 class GeminiModel:
-    def __init__(self, model, project, location, labels=None, thinking_level=None, timeout_seconds=None):
+    def __init__(self, model, project, location, labels=None, thinking_level=None, call_timeout_seconds=None):
         from google import genai  # imported here so v1 and tests never need it
         from google.genai import types
 
@@ -50,9 +58,26 @@ class GeminiModel:
         self.labels = labels or {}
         # LOW thinking = fewer (billed) thinking tokens and faster turns; None = the model's default
         self.thinking_level = thinking_level
-        # One Gemini call may never take longer than the whole request deadline (SDK unit: ms)
-        http_options = types.HttpOptions(timeout=int(timeout_seconds * 1000)) if timeout_seconds else None
+        # Limit for ONE Gemini call (SDK unit: ms). The SDK also sends it to Google as
+        # X-Server-Timeout, so a call that would take longer ends with 504 DEADLINE_EXCEEDED.
+        # A normal call takes about 1 s; measured in the cloud canary, a few hang for 8-9 s.
+        # A short limit cuts those off early, leaving time to retry within the request deadline.
+        http_options = types.HttpOptions(timeout=int(call_timeout_seconds * 1000)) if call_timeout_seconds else None
         self.client = genai.Client(vertexai=True, project=project, location=location, http_options=http_options)
+
+    def _generate(self, **kwargs):
+        """generate_content, with slow/transient failures turned into ModelTimeout."""
+        import httpx
+        from google.genai import errors
+
+        try:
+            return self.client.models.generate_content(**kwargs)
+        except errors.APIError as exc:
+            if exc.code in RETRYABLE_STATUS:
+                raise ModelTimeout(f"{exc.code} {exc.status or ''}".strip()) from exc
+            raise
+        except (httpx.TimeoutException, httpx.ConnectError) as exc:
+            raise ModelTimeout(f"{type(exc).__name__}") from exc
 
     def run_turn(self, history, system, tools):
         from google.genai import types
@@ -76,7 +101,7 @@ class GeminiModel:
             # Vertex AI billing labels: lets the cost report separate v2's model spend
             labels=self.labels,
         )
-        response = self.client.models.generate_content(
+        response = self._generate(
             model=self.model, contents=[self._content(h, types) for h in history], config=config
         )
         usage = response.usage_metadata

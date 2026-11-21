@@ -73,6 +73,7 @@ class RecommendationService:
         if outcome is not None:
             cost = (outcome.input_tokens * self.prices[0] + outcome.output_tokens * self.prices[1]) / 1_000_000
             record.update(model=self.model_name, tool_calls=outcome.tool_calls, turns=outcome.turns,
+                          model_retries=outcome.retries,
                           input_tokens=outcome.input_tokens, output_tokens=outcome.output_tokens,
                           cost_usd=round(cost, 8))
 
@@ -121,9 +122,10 @@ def build_recommendation_service(config, catalog, model=None):
             model = GeminiModel(config["GEMINI_MODEL"], config["VERTEX_PROJECT"], config["VERTEX_LOCATION"],
                                 labels={"service": "recommendation", "version": "v2"},
                                 thinking_level=config.get("GEMINI_THINKING_LEVEL") or None,
-                                timeout_seconds=config["AGENT_TIMEOUT_SECONDS"])
+                                call_timeout_seconds=config["GEMINI_CALL_TIMEOUT_SECONDS"])
     model_name = config["GEMINI_MODEL"] if isinstance(model, GeminiModel) else getattr(model, "name", "custom")
-    agent = AgentRecommender(model, catalog, max_turns=config["AGENT_MAX_TURNS"], fault_mode=config["FAULT_MODE"])
+    agent = AgentRecommender(model, catalog, max_turns=config["AGENT_MAX_TURNS"], fault_mode=config["FAULT_MODE"],
+                             model_retries=config["GEMINI_CALL_RETRIES"])
     return RecommendationService("v2", catalog, rules, agent, timeout=config["AGENT_TIMEOUT_SECONDS"],
                                  fallback_enabled=config["FALLBACK_ENABLED"], model_name=model_name,
                                  prices=(config["PRICE_INPUT_PER_M"], config["PRICE_OUTPUT_PER_M"]))

@@ -63,3 +63,42 @@ def test_sends_tools_labels_and_history_back():
     assert config.automatic_function_calling.disable is True
     assert config.labels == {"version": "v2"}
     assert config.temperature == 0
+
+
+class RaisingModels:
+    def __init__(self, exc):
+        self.exc = exc
+
+    def generate_content(self, model, contents, config):
+        raise self.exc
+
+
+def raising_model(exc):
+    gm = make_model(None)
+    gm.client = type("C", (), {"models": RaisingModels(exc)})()
+    return gm
+
+
+def test_slow_or_transient_gemini_errors_become_retryable():
+    import httpx
+    import pytest
+    from google.genai import errors
+
+    from app.recommendations.model import ModelTimeout
+
+    deadline = errors.ServerError(504, {"error": {"code": 504, "message": "Deadline expired", "status": "DEADLINE_EXCEEDED"}})
+    for exc in (deadline, httpx.ReadTimeout("timed out")):
+        with pytest.raises(ModelTimeout):
+            raising_model(exc).run_turn([{"role": "user", "text": "LIMIT=5"}], "system", TOOLS)
+
+
+def test_other_gemini_errors_are_not_retried():
+    import pytest
+    from google.genai import errors
+
+    from app.recommendations.model import ModelTimeout
+
+    bad_request = errors.ClientError(400, {"error": {"code": 400, "message": "bad", "status": "INVALID_ARGUMENT"}})
+    with pytest.raises(errors.ClientError) as info:
+        raising_model(bad_request).run_turn([{"role": "user", "text": "LIMIT=5"}], "system", TOOLS)
+    assert not isinstance(info.value, ModelTimeout)

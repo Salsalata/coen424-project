@@ -14,7 +14,7 @@ One request, step by step:
 import time
 from dataclasses import dataclass, field
 
-from .model import Tool
+from .model import ModelTimeout, Tool
 
 SYSTEM = """You recommend products for an online shop.
 Use the tools to look at the user's recent activity and at the catalog, then decide.
@@ -85,6 +85,7 @@ class AgentOutcome:
     input_tokens: int = 0
     output_tokens: int = 0
     turns: int = 0
+    retries: int = 0  # model calls repeated after a ModelTimeout
 
 
 def _short(product):
@@ -94,11 +95,27 @@ def _short(product):
 class AgentRecommender:
     name = "agent"
 
-    def __init__(self, model, catalog, max_turns=6, fault_mode="none", slow_seconds=30.0):
+    def __init__(self, model, catalog, max_turns=6, fault_mode="none", slow_seconds=30.0,
+                 model_retries=1, retry_min_seconds=2.0):
         if fault_mode not in FAULT_MODES:
             raise ValueError(f"FAULT_MODE must be one of {FAULT_MODES}")
         self.model, self.catalog = model, catalog
         self.max_turns, self.fault_mode, self.slow_seconds = max_turns, fault_mode, slow_seconds
+        # A slow model call (ModelTimeout) is repeated up to model_retries times, but only
+        # if at least retry_min_seconds remain before the deadline (a normal call takes ~1 s)
+        self.model_retries, self.retry_min_seconds = model_retries, retry_min_seconds
+
+    def _run_turn(self, history, system, deadline, outcome):
+        attempt = 0
+        while True:
+            try:
+                return self.model.run_turn(history, system, TOOLS)
+            except ModelTimeout as exc:
+                time_left = None if deadline is None else deadline - time.monotonic()
+                if attempt >= self.model_retries or (time_left is not None and time_left < self.retry_min_seconds):
+                    raise AgentError(f"model call failed ({exc}) after {attempt} retries") from exc
+                attempt += 1
+                outcome.retries += 1
 
     # --- the tools: plain Python functions run by OUR code when the model asks ---
     def _run_tool(self, call, context):
@@ -136,7 +153,7 @@ class AgentRecommender:
         for _ in range(self.max_turns):
             if deadline is not None and time.monotonic() >= deadline:
                 raise AgentError("stopped: deadline passed")
-            turn = self.model.run_turn(history, SYSTEM.replace("LIMIT", str(limit)), TOOLS)
+            turn = self._run_turn(history, SYSTEM.replace("LIMIT", str(limit)), deadline, outcome)
             outcome.turns += 1
             outcome.input_tokens += turn.input_tokens
             outcome.output_tokens += turn.output_tokens

@@ -41,7 +41,8 @@ class FakeCatalog:
 
 
 class FakeModel:
-    """Plays back a fixed list of turns; each turn is a list of (tool name, args)."""
+    """Plays back a fixed list of turns; each turn is a list of (tool name, args),
+    or an exception instance to raise for that call (e.g. ModelTimeout)."""
 
     name = "fake"
 
@@ -51,6 +52,8 @@ class FakeModel:
     def run_turn(self, history, system, tools):
         self.seen.append(history[-1])
         calls = self.turns.pop(0) if self.turns else []
+        if isinstance(calls, Exception):
+            raise calls
         return ModelTurn(calls=[ToolCall(n, a) for n, a in calls], input_tokens=self.tokens[0],
                          output_tokens=self.tokens[1], text="" if calls else "I think...")
 

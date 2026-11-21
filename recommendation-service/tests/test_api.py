@@ -142,3 +142,36 @@ def test_timed_out_agent_does_not_call_the_model_afterwards(capsys):
     assert "timed out" in last_log(capsys)["reason"]
     time.sleep(0.5)  # the abandoned agent wakes up after its deadline...
     assert model.seen == []  # ...and stops instead of calling the model
+
+
+def test_slow_model_call_is_retried_once_and_logged(capsys):
+    from app.recommendations.model import ModelTimeout
+
+    model = FakeModel([ModelTimeout("504 DEADLINE_EXCEEDED"), SUBMIT_GOOD])
+    assert make(model=model, AGENT_TIMEOUT_SECONDS=10).get("/api/v1/users/u1/recommendations?limit=2").status_code == 200
+    log = last_log(capsys)
+    assert log["source"] == "agent" and log["valid"] is True
+    assert log["model_retries"] == 1
+    assert len(model.seen) == 2  # the same turn was sent twice
+
+
+def test_retries_are_limited(capsys):
+    from app.recommendations.model import ModelTimeout
+
+    model = FakeModel([ModelTimeout("504"), ModelTimeout("504"), SUBMIT_GOOD])
+    make(model=model, AGENT_TIMEOUT_SECONDS=10).get("/api/v1/users/u1/recommendations?limit=2")
+    log = last_log(capsys)
+    assert log["source"] == "fallback" and "after 1 retries" in log["reason"]
+    assert len(model.seen) == 2  # first try + one retry, never a third call
+
+
+def test_no_retry_when_the_deadline_is_too_close(catalog):
+    from app.recommendations.agent import AgentError, AgentRecommender
+    from app.recommendations.context import load_context
+    from app.recommendations.model import ModelTimeout
+
+    model = FakeModel([ModelTimeout("504"), SUBMIT_GOOD])
+    agent = AgentRecommender(model, catalog, retry_min_seconds=2.0)
+    with pytest.raises(AgentError, match="after 0 retries"):
+        agent.recommend(load_context(catalog, "u1"), 2, deadline=time.monotonic() + 0.5)
+    assert len(model.seen) == 1  # a retry could not finish in time, so none is started

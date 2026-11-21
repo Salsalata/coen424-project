@@ -23,6 +23,10 @@ class Config:
     VERTEX_LOCATION = os.getenv("VERTEX_LOCATION", "global")
     AGENT_TIMEOUT_SECONDS = float(os.getenv("AGENT_TIMEOUT_SECONDS", "10"))  # measured 2026-11-21: warm v2 ~2.7-3.1 s, cold ~6.5 s
     AGENT_MAX_TURNS = int(os.getenv("AGENT_MAX_TURNS", "6"))
+    # One Gemini call: cut off after this many seconds, then retried (canary 2026-11-21:
+    # normal calls ~1 s, but 1-5% hung for 8-9 s and ended in 504 DEADLINE_EXCEEDED)
+    GEMINI_CALL_TIMEOUT_SECONDS = float(os.getenv("GEMINI_CALL_TIMEOUT_SECONDS", "4"))
+    GEMINI_CALL_RETRIES = int(os.getenv("GEMINI_CALL_RETRIES", "1"))
     FALLBACK_ENABLED = _flag("FALLBACK_ENABLED", True)
     FAULT_MODE = os.getenv("FAULT_MODE", "none")  # none | invalid_ids | slow | error
 
