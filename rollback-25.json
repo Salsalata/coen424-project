@@ -1,0 +1,10 @@
+{
+  "requests": 1116,
+  "requests_per_second": 6.2,
+  "errors_total": 0,
+  "error_rate_5xx_or_timeout_pct": 0.0,
+  "correct_pct": 100.0,
+  "latency_ms_p50": 99.0,
+  "latency_ms_p95": 2266.2,
+  "latency_ms_p99": 4506.1
+}

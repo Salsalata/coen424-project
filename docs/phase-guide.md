@@ -229,3 +229,12 @@ What we actually ran, in order. Machine in brackets.
 | (Claude) `GEMINI_MODEL=gemini-3.5-flash-lite`, prices **0.30 / 2.50** USD per 1M tokens (`deploy/config.sh`, `config.py`, `docker-compose.gemini.yml`) | chosen: fast, stable under concurrency, personalised, cheapest | redeploy + new 10% baseline next |
 | `deploy/04_deploy_v2.sh` (after `unset` + re-`source`), warm-up, `canary.sh 10`, `loadtest.py --duration 180 --concurrency 4`, `report.sh 5`, `canary.sh 0` | 10% baseline with `gemini-3.5-flash-lite` | **v2: 248 req (9.2%), 100% correct, 0 fallbacks, 0 errors, p95 2,069 ms, $0.00084/req**; v1: 2,454 req, p95 79 ms. Total v2 model cost $0.21 |
 | (Claude) X = 4,000 ms and Y = $0.002 in `docs/canary-runbook.md`, with the baseline table | thresholds fixed before the next canary steps | Phase 5 done except the quality comparison |
+
+### 2026-11-21: Phase 6 cloud canary (teammate's MacBook)
+
+| Command | What it does | Result |
+| --- | --- | --- |
+| `deploy/canary.sh 100` + `loadtest.py --duration 180 --concurrency 4 --out step-100.json` + `report.sh 5` | full promotion | **failed 2 criteria → rolled back**: v2 p95 **4,874 ms** (> X = 4,000) and correct **97.83%** (< 99%, 7 of 322 fell back); 0 errors; $0.00082/req. Clients: 0 errors, 100% correct (p99 8.7 s). Throughput fell to 1.8 req/s (every request waits on Gemini) |
+| `FAULT_MODE=invalid_ids deploy/04_deploy_v2.sh` → `canary.sh 25` → load 180 s → `report.sh 5` → `canary.sh 0` → `FAULT_MODE=none deploy/04_deploy_v2.sh` | **rollback demo** | v2 25.4% of 1,112 requests, **correct 0%, 282 of 282 fell back**; clients **0 errors, 100% correct**. Rolled back to v1 100%; healthy v2 redeployed as revision `00020` at 0%. 2 of the failures were real `504 DEADLINE_EXCEEDED` from Gemini (8.6 s, 9.3 s), not the injected fault |
+| (Claude) `gcloud logging read` per step window + `scripts/split_report.py` | per-version numbers for 10/25/50/100% (the `step-*.json` files are client-side only) | v2 correct: 10% **99.58%**, 25% **94.76%** (p95 4,984 ms), 50% **98.83%**, 100% **97.84%**. Failures are almost all Gemini `504 DEADLINE_EXCEEDED`. By the runbook the canary should have stopped at 25%; table in `docs/canary-runbook.md` |
+

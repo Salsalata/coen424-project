@@ -77,3 +77,28 @@ load per step, 4 threads):
 
 Deadline check: with `FAULT_MODE=slow`, v2 answered in 8.0 s with
 `source: fallback`, `valid: false`, `reason: agent timed out after 8.0s`.
+
+## Cloud results (2026-11-21, Cloud Run, `gemini-3.5-flash-lite`, 180 s of load per step, 4 threads)
+
+Per-version numbers from Cloud Logging for each step's window (times from `canary-history.log`);
+client numbers from the load test's `--out` files.
+
+| Step | v2 share | v2 correct | v2 fallbacks (reasons) | v2 p95 | v2 cost/req | clients: errors / correct | Verdict against the criteria |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 10% (baseline, 03:01 local) | 9.2% of 2,702 | 100% | 0 | 2,069 ms | $0.00084 | 0% / 100% | pass; thresholds set |
+| 10% | 9.7% of 2,474 | 99.58% | 1 (504) | 2,915 ms | $0.00084 | 0% / 100% | **pass** |
+| 25% | 23.5% of 1,138 | **94.76%** | 14 (13 × 504, 1 missing reason) | **4,984 ms** | $0.00080 | 0% / 100% | **fail: should have rolled back** |
+| 50% | 49.3% of 692 | **98.83%** | 4 (504) | 2,869 ms | $0.00084 | 0% / 100% | **fail** (correctness just under 99%) |
+| 100% | 100% of 324 | **97.84%** | 7 (504) | **4,874 ms** | $0.00083 | 0% / 100% | **fail → rolled back** |
+| 25%, `FAULT_MODE=invalid_ids` (rollback demo) | 25.4% of 1,112 | **0%** | **282** (injected; 2 × 504) | 3,423 ms | $0.00083 | **0% / 100%** | **fail → rolled back** (`canary.sh 0`) |
+
+Findings:
+- Almost every real v2 failure is `504 DEADLINE_EXCEEDED` from Gemini: an occasional call
+  that hangs for 8-9 s, between about 0.4% and 5% of v2 requests depending on the step.
+  Our code is not the cause; the deadline and fallback handled every one of them.
+- The clients saw 0 errors and 100% correct answers at **every** step, including the
+  broken ones. The promotion past 25% was a procedure error: the decision must be made
+  from `deploy/report.sh` (in-service `correct_pct`, p95), not from the load test's
+  client view. This is the project's main lesson, seen in practice.
+- The rollback demo reproduces the local rehearsal in the cloud: a completely broken v2
+  was invisible to clients and visible only through the service's own `valid` field.
