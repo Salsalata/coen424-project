@@ -78,7 +78,7 @@ load per step, 4 threads):
 Deadline check: with `FAULT_MODE=slow`, v2 answered in 8.0 s with
 `source: fallback`, `valid: false`, `reason: agent timed out after 8.0s`.
 
-## Cloud results (2026-11-21, Cloud Run, `gemini-3.5-flash-lite`, 180 s of load per step, 4 threads)
+## Cloud results, first canary (2026-11-21, Cloud Run, `gemini-3.5-flash-lite`, 180 s of load per step, 4 threads)
 
 Per-version numbers from Cloud Logging for each step's window (times from `canary-history.log`);
 client numbers from the load test's `--out` files.
@@ -102,3 +102,37 @@ Findings:
   client view. This is the project's main lesson, seen in practice.
 - The rollback demo reproduces the local rehearsal in the cloud: a completely broken v2
   was invisible to clients and visible only through the service's own `valid` field.
+
+## Cloud results, second canary: by the book, with the retry fix (2026-11-21/22)
+
+Change since the first canary: one Gemini call is cut off after 4 s (`GEMINI_CALL_TIMEOUT_SECONDS`)
+and retried once (`GEMINI_CALL_RETRIES`) if at least 2 s remain before the 10 s deadline; new
+log field `model_retries`. New 10% baseline: v2 99.12% correct, p95 2,775 ms; X = 4,000 ms and
+Y = $0.002 kept and confirmed **before** this canary. Each step was promoted only after its
+`deploy/report.sh` v2 section passed all four criteria.
+
+| Step | v2 share | v2 correct | v2 fallbacks | v2 p95 | v2 cost/req | clients: errors / correct (p95) | Verdict |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 10% | 10.0% (252 v2 req) | **99.6%** | 1 | 2,177 ms | $0.00084 | 0% / 100% (1,829 ms) | **pass → promote** |
+| 25% | 24.5% (350 v2 req) | **100%** | 0 | 2,011 ms | $0.00084 | 0% / 100% (1,851 ms) | **pass → promote** |
+| 50% | 50.7% (372 v2 req) | **100%** | 0 | 2,050 ms | $0.00085 | 0% / 100% (2,024 ms) | **pass → promote** |
+| 100% | 100% (222 v2 req) | **85.59%** | **32** | **6,431 ms** | $0.00072 | 0% / 100% (6,454 ms) | **fail → rolled back** (`canary.sh 0`) |
+
+What happened at 100% (Cloud Logging, 00:10-00:14 UTC):
+- **32 failures:** 30 × `504 DEADLINE_EXCEEDED` where the retry also hung, 1 × `500 INTERNAL`
+  after a retry, and 1 × **`429 RESOURCE_EXHAUSTED`** (Gemini refusing the call for capacity).
+- **51 more requests were saved by the retry** (46 needed 1 retry, 5 needed 2), so **83 of 222 v2
+  requests (37%) hit at least one hanging Gemini call**, against about 0-5% at 10-50%.
+- v2 handled *fewer* requests per minute at 100% (~70) than at 50% (~124), so it is not the raw
+  request rate. What changes at 100% is that all 4 load threads wait on Gemini at all times:
+  about 4 agent loops (and their retries) are always in flight. Together with the 429, this points
+  to **Gemini's shared capacity throttling us under sustained concurrent load** (Vertex AI
+  pay-as-you-go has no reserved capacity), with retries adding load at the worst moment. This is
+  our best explanation from the evidence, not a confirmed cause.
+
+Outcome: **v2 meets every criterion up to 50% of traffic and is rolled back at 100%.** The
+canary did its job twice: it promoted step by step on in-service measurements, stopped before
+full promotion, and clients saw 0 errors and 100% correct answers throughout (the fallback).
+Options beyond this project: reserved model capacity (Vertex AI Provisioned Throughput), a cap
+on concurrent agent loops per instance, or keeping v2 at a partial share.
+
