@@ -7,8 +7,9 @@ to call), released with a canary.
 
 - Contract: [`openapi.yaml`](openapi.yaml) - on SwaggerHub: [product-recommendation-api 1.0.0](https://app.swaggerhub.com/apis/concordiauniversity-6d6/product-recommendation-api/1.0.0)
 - Data model: [`docs/data-model.md`](docs/data-model.md)
-- Canary criteria and steps: [`docs/canary-runbook.md`](docs/canary-runbook.md)
-- Step-by-step from laptop to cloud: [`docs/phase-guide.md`](docs/phase-guide.md)
+- Canary criteria, steps and cloud results: [`docs/canary-runbook.md`](docs/canary-runbook.md)
+- v1 vs v2 on 15 shoppers: [`docs/quality-comparison.md`](docs/quality-comparison.md)
+- Step-by-step from laptop to cloud, with the command log: [`docs/phase-guide.md`](docs/phase-guide.md)
 
 ## Live on Google Cloud (project `coen424-reco-sal`, Montréal)
 
@@ -16,8 +17,24 @@ to call), released with a canary.
 | --- | --- | --- |
 | catalog-service | https://catalog-service-187893550568.northamerica-northeast1.run.app | `/api/v1/products?limit=3` |
 | recommendation-service (v1, tag `rules-v1`, 100%) | https://recommendation-service-187893550568.northamerica-northeast1.run.app | `/api/v1/users/demo1/recommendations?limit=3` |
+| v2 directly (tag `agent-v2`, 0% of traffic) | https://agent-v2---recommendation-service-pxxbzokq2a-nn.a.run.app | same path; the first request after a pause is slow (cold start) |
 
 Health checks are at `/health` (not `/healthz`: Cloud Run reserves paths ending in `z`).
+
+## Results so far (2026-11-21)
+
+- **v2** runs `gemini-3.5-flash-lite` on Vertex AI (`global`), thinking level LOW, 2 model
+  turns per request, about 2 s and $0.0008 per request. `gemini-2.5-flash` was retired;
+  `gemini-3.8-flash` timed out under load and `gemini-4-hydrogen` hit quota (comparison in
+  the phase guide).
+- **Safety net:** validator, 10 s deadline, fallback to the rules, and a 4 s cut-off with one
+  retry for a hanging Gemini call.
+- **Canary (by the book):** v2 met every criterion at 10%, 25% and 50% and was **rolled back
+  at 100%** (hanging Gemini calls and one `429` under constant concurrency). Clients saw
+  0 errors and 100% correct answers at every step.
+- **Rollback demo in the cloud:** a deliberately broken v2 at 25% was 0% correct by its own
+  validator while clients still saw 100% correct answers, which is why the canary
+  measures correctness inside the service, not error rate.
 
 ## Layout
 
@@ -28,6 +45,7 @@ recommendation-service/      recommendations: v1 rules or v2 agent (same image)
 facade/                      local-only router that splits traffic v1/v2
 loadtest/loadtest.py         the same load at every canary step
 scripts/split_report.py      per-version numbers from the logs
+scripts/compare_quality.py   the same shoppers through v1 and v2, for people to judge
 deploy/                      Google Cloud scripts: setup, deploy, canary, report, dashboard
 tests/                       end-to-end tests against the OpenAPI contract
 .github/workflows/ci.yml     tests + image builds on every push

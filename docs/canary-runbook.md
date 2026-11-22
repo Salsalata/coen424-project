@@ -54,6 +54,11 @@ Same load at every step: `python loadtest/loadtest.py --catalog-url $CATALOG_URL
 
 ## Rollback demo (required in D4)
 
+For the live demo at D4 use [`docs/demo-plan.md`](demo-plan.md): the broken v2 is deployed
+beforehand under its own tag `faulty-v2` (`FAULT_MODE=invalid_ids V2_TAG=faulty-v2 deploy/04_deploy_v2.sh`),
+so during the talk `deploy/canary.sh 25 faulty-v2` and `deploy/canary.sh 0` only move traffic.
+The steps below are the original version, which rebuilds v2 twice (a few minutes each).
+
 1. Promote to 10%, show the dashboard healthy.
 2. Inject a fault into v2: `FAULT_MODE=invalid_ids deploy/04_deploy_v2.sh`, then `deploy/canary.sh 25`.
 3. Load for 3 minutes; `deploy/report.sh 4` shows v2 `correct_pct` near 0 while

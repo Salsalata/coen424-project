@@ -12,8 +12,8 @@ at the end records what we actually ran, session by session.
 | 2. Your machine + GitHub | **done 2026-11-03**: github.com/Salsalata/coen424-project, CI green (test 33 s, docker 27 s) |
 | 3. SwaggerHub | **done 2026-11-03** (unpublished until the Cloud Run URLs are in): https://app.swaggerhub.com/apis/concordiauniversity-6d6/product-recommendation-api/1.0.0 |
 | 4. Google Cloud: catalog + v1 | **done 2026-11-05**: catalog + v1 live on Cloud Run, products in Firestore (URLs in the README) |
-| 5. v2 with real Gemini | **in progress** (2026-11-20): v2 deployed at 0% (tag `agent-v2`), `gemini-3.5-flash-lite` on `global`; 10% baseline 100% correct, p95 2.1 s; X/Y set. Remaining: quality comparison |
-| 6. Canary + rollback demo | not started |
+| 5. v2 with real Gemini | **done 2026-11-21** except the team's quality verdicts: v2 deployed at 0% (tag `agent-v2`), `gemini-3.5-flash-lite` on `global`; quality comparison run (team verdicts pending) |
+| 6. Canary + rollback demo | **mostly done 2026-11-22**: canary by the book (pass 10/25/50%, rolled back at 100%), rollback demo in the cloud. Left: dashboard screenshots, SwaggerHub publish, demo plan |
 | 7. Report + slides + rehearsal | not started |
 
 ---
@@ -242,4 +242,8 @@ What we actually ran, in order. Machine in brackets.
 | `04_deploy_v2.sh` (revision `00021`), `canary.sh 10`, load 180 s (`--out baseline-10-retry.json`), `report.sh 5`, `canary.sh 0` | 10% baseline **with the retry fix** | v2: 226 req (9.4%), **99.12% correct** (2 fallbacks), p95 **2,775 ms**, $0.00084/req, 0 errors: passes all 4 criteria. Logs: 11 requests (4.9%) hit a hanging Gemini call; **9 saved by the retry** (valid, 4.2-8.0 s), 2 failed when the retry also hung (504 after 1 retry). X = 4,000 ms kept (p95 is ~1.4x below it) |
 | `canary.sh 10` → `25` → `50` → `100`, load 180 s each (`--out canary2-*.json`), `report.sh 5` after each, verdict before each promotion | **second canary, by the book** | v2 correct / p95: 10% **99.6% / 2,177 ms**, 25% **100% / 2,011 ms**, 50% **100% / 2,050 ms**: all pass. 100% **85.59% / 6,431 ms**: fail → `canary.sh 0` |
 | (Claude) `gcloud logging read` for the 100% window | why 100% failed | 30 × 504 after a retry, 1 × 500, 1 × 429 RESOURCE_EXHAUSTED; 51 more saved by retries: 37% of requests hit a hanging call (vs 0-5% at 10-50%). Likely Gemini shared-capacity throttling under constant concurrency. Results in `docs/canary-runbook.md` |
+
+| `python3 scripts/compare_quality.py --catalog-url $CAT --v1-url <rules-v1 tag URL> --v2-url <agent-v2 tag URL>` | 15 shoppers with different histories through v1 and v2 | all 15 answered by the agent (no fallback); `docs/quality-comparison.md` written. v2: complements across categories and follows recency; neither version respects price; some v2 reasons are plausible but untrue. Verdicts: to be filled in by the team |
+| (Claude) README: v2 tag URL, results so far, new docs | keep the front page current | |
+| (Claude) `canary.sh <pct> [agent-v2\|faulty-v2]` and `V2_TAG=faulty-v2` in `04_deploy_v2.sh`; `docs/demo-plan.md` | live demo with no build during the talk: healthy and broken v2 deployed beforehand under separate tags | dry run with a stubbed `gcloud`: all 5 tag cases correct (e.g. `canary.sh 25 faulty-v2` → `rules-v1=75,agent-v2=0,faulty-v2=25`) |
 
