@@ -44,20 +44,23 @@ Put the commands below in a text file to paste from.
 | # | Say | Run | Expect |
 | --- | --- | --- | --- |
 | 1 | "v1 serves everyone; v2 is deployed but gets 0%." | `deploy/canary.sh 10` | traffic table: `rules-v1` 90%, `agent-v2` 10% |
-| 2 | "Same load at every step." | `python3 loadtest/loadtest.py --catalog-url "$CAT" --reco-url "$RECO" --duration 90 --concurrency 4` | clients: 0 errors, 100% correct |
-| 3 | "The decision comes from inside the service, not from the clients." | `deploy/report.sh 2` | v2: ~10% share, correct ≥ 99%, p95 ~2 s, ~$0.0008/request → **pass** |
+| 2 | "Same load at every step." | `python3 loadtest/loadtest.py --catalog-url "$CAT" --reco-url "$RECO" --duration 120 --concurrency 4` | clients: 0 errors, 100% correct |
+| 3 | "The decision comes from inside the service, not from the clients." | `deploy/report.sh step` | v2: ~10% share, correct ≥ 99%, p95 ~2 s, ~$0.0008/request → **pass** |
 | 4 | "Now a v2 with a bug: it returns a product that does not exist." | `deploy/canary.sh 25 faulty-v2` | `faulty-v2` 25%, `agent-v2` 0% |
-| 5 | "Same load." | load test as in 2 | **clients still 0 errors, 100% correct** |
-| 6 | "Clients see nothing wrong. The service's own validator does." | `deploy/report.sh 2` | v2 correct **~0%**, fallbacks ≈ all v2 requests → **criterion violated** |
+| 5 | "Same load." | load test as in 2 (`--duration 90` is enough here) | **clients still 0 errors, 100% correct** |
+| 6 | "Clients see nothing wrong. The service's own validator does." | `deploy/report.sh step` | v2 correct **~0%**, fallbacks ≈ all v2 requests → **criterion violated** |
 | 7 | "So we roll back." | `deploy/canary.sh 0` | `rules-v1` 100% within seconds |
 | 8 | Dashboard tile 4: v2 invalid answers rise to meet v2 requests, then traffic returns to v1. | (dashboard) | |
 
 Notes:
-- The step-6 report may also count a few step-1 requests (2-minute window); v2's
-  correctness still collapses, which is the point.
-- With ~90 v2 requests at step 1, a single Gemini hiccup (one fallback) puts correctness at
-  ~98.9%, below the 99% bar. If that happens live, say so: the canary just did its job,
-  and the canary table (`docs/canary-runbook.md`) shows the full run.
+- `deploy/report.sh step` counts only requests since the last `deploy/canary.sh`, so the
+  warm-up requests (including the deliberately broken `faulty-v2` ones) and the previous
+  step are never mixed in. Run it right after the load test.
+- Step 1 is short (~110-150 v2 requests): one Gemini hiccup that the retry cannot save puts
+  correctness under 99%, and a minute of slow Gemini calls (each saved by a 4-6 s retry) can
+  push p95 over 4,000 ms (the latter happened in rehearsal). If a criterion fails live, say so: the
+  canary is doing its job, and the full canary (`docs/canary-runbook.md`: 10/25/50% passed)
+  is the evidence.
 - Budget: about $0.10 in Gemini per run of this demo.
 
 ## If something goes wrong on stage
@@ -65,7 +68,7 @@ Notes:
 | Problem | Do |
 | --- | --- |
 | A command hangs or the network fails | Show the recorded results: `docs/canary-runbook.md` (both canaries and the rollback demo) and the dashboard screenshots |
-| `report.sh` shows 0 requests | Logs arrive up to a minute late: run it again, or `deploy/report.sh 3` |
+| `report.sh` shows 0 requests | Logs arrive up to a minute late: wait 30 s and run `deploy/report.sh step` again |
 | Traffic is in a wrong state | `deploy/canary.sh 0` always returns everything to v1 |
 
 ## After the talk
