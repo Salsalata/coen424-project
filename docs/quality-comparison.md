@@ -16,21 +16,21 @@ The verdicts are filled in by the team, not by a script or an AI.
 
 | Shopper | Overlap v1/v2 | v1 time | v2 time | Note | Better (v1 / v2 / tie) | Why |
 | --- | --- | --- | --- | --- | --- | --- |
-| new-user | 4/4 | 2.3 s | 1.9 s |  | | |
-| runner | 2/4 | 0.2 s | 1.7 s |  | | |
-| home-cook | 3/4 | 0.2 s | 1.7 s |  | | |
-| bargain-hunter | 3/4 | 0.2 s | 1.8 s |  | | |
-| luxury | 2/4 | 0.2 s | 1.8 s |  | | |
-| browser | 2/4 | 0.2 s | 1.9 s |  | | |
-| winter | 1/4 | 0.3 s | 2.1 s |  | | |
-| tech | 3/4 | 0.2 s | 2.1 s |  | | |
-| fitness-done | 2/4 | 0.2 s | 1.6 s |  | | |
-| new-home | 3/4 | 0.2 s | 1.8 s |  | | |
-| changed-interest | 1/4 | 0.2 s | 5.2 s |  | | |
-| beauty | 4/4 | 0.2 s | 1.9 s |  | | |
-| traveller | 2/4 | 0.2 s | 1.9 s |  | | |
-| kitchen-complete | 1/4 | 0.2 s | 1.9 s |  | | |
-| gift-shopper | 1/4 | 0.2 s | 1.8 s |  | | |
+| new-user | 4/4 | 2.3 s | 1.9 s |  |v2 |Same outcome, but v2 faster |
+| runner | 2/4 | 0.2 s | 1.7 s |  |v2 |Relevance: sport items |
+| home-cook | 3/4 | 0.2 s | 1.7 s |  |v1 |Relevance: kitchen items |
+| bargain-hunter | 3/4 | 0.2 s | 1.8 s |  |v1 |Both did not recommend cheap items, v1 much faster |
+| luxury | 2/4 | 0.2 s | 1.8 s |  |v2 |Relevance: Cart history |
+| browser | 2/4 | 0.2 s | 1.9 s |  |v1 |Customer has no specific intent (weak signal); recommendations not need to be specific. v1 much faster |
+| winter | 1/4 | 0.3 s | 2.1 s |  |v2 |Relevance: Picked up winter suggestions |
+| tech | 3/4 | 0.2 s | 2.1 s |  |v1 |Recommendations are similar between the two. v1 much faster |
+| fitness-done | 2/4 | 0.2 s | 1.6 s |  |v2 |Relevance: charger complements earbuds |
+| new-home | 3/4 | 0.2 s | 1.8 s |  |v2 |Relevance: mug |
+| changed-interest | 1/4 | 0.2 s | 5.2 s |  |v1 |Relevance: tech and kitchen items. Also much faster (v2 exceeds 4000ms limit) |
+| beauty | 4/4 | 0.2 s | 1.9 s |  |v1 |Same results, v1 much faster |
+| traveller | 2/4 | 0.2 s | 1.9 s |  |v1 | Relevance: items useful for travel|
+| kitchen-complete | 1/4 | 0.2 s | 1.9 s |  |v2|Relevance: home related |
+| gift-shopper | 1/4 | 0.2 s | 1.8 s |  |v1 |Relevance: suggests similar cart history |
 
 ## Per shopper
 
